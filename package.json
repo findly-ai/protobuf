@@ -1,6 +1,6 @@
 {
   "name": "@findly-ai/protobuf",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "Open source protobufs for Findly AI",
   "main": "index.js",
   "scripts": {
