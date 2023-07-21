@@ -1,0 +1,27 @@
+{
+  "name": "@findly-ai/protobuf",
+  "version": "1.0.0",
+  "description": "Open source protobufs for Findly AI",
+  "main": "index.js",
+  "scripts": {
+    "postinstall": "npm run make-proto-dir; npm run generate-pbts",
+    "make-proto-dir": "rm -rf ./ts && mkdir ./ts",
+    "generate-pbts": "npm run gen-conversation-js; npm run gen-conversation-ts;",
+    "gen-conversation-js": "npx pbjs --force-number -t static-module -w es6 -o ./ts/conversation.js $PWD/defs/conversation.proto",
+    "gen-conversation-ts": "npx pbts -o ./ts/conversation.d.ts ./ts/conversation.js"
+  },
+  "dependencies": {
+    "google-protobuf": "^3.21.0",
+    "long": "^5.2.0",
+    "protobufjs": "7.1.2",
+    "protobufjs-cli": "1.0.2"
+  },
+  "devDependencies": {
+    "core-js": "^3.23.4",
+    "cross-env": "^7.0.3",
+    "ts-proto": "^1.117.0",
+    "typescript": "^4.7.4"
+  },
+  "author": "findly-ai",
+  "license": "ISC"
+}

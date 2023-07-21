@@ -1,0 +1,301 @@
+syntax = "proto3";
+
+package conversation;
+
+message AppConversation {
+    oneof conversation {
+        SlackConversation slack_conversation = 1;
+        DashboardConversation dashboard_conversation = 2;
+    }
+}
+
+message SlackConversation{
+    Conversation conversation = 1;
+    // which slack channel was this conversation part of
+    string channel_id = 2;
+
+    // the slack team_id for this conversation
+    string team_id = 3;
+
+    // thread-id is how slack encodes data about a new thread, if we reply to a
+    // thread-id it automagically goes to the correct thread
+    string thread_id = 4;
+
+    string event_id = 5;
+}
+
+message DashboardConversation{
+    Conversation conversation = 1;
+}
+
+// Our representation of the conversation, we want to encode as much
+// information as possible for the conversation in our datastructure
+// so we can use it later.
+message Conversation {
+    string id = 1;
+    string workspace = 2;
+    // timestamp when this slack thread was started
+    // this is really the creation time, but we are using this for sorting
+    // purposes
+    int32 timestamp = 3;
+    // timestamp when the conversation was last updated, this is only going
+    // to use the messages which are coming in to update
+    int32 last_updated = 4;
+    repeated Message messages = 5;
+    // the email of the person who started the conversation
+    string started_by_email = 6;
+}
+
+// Contains information about one of the generated sql information parts
+// We can use this to store all context about the generated answer from
+// a set of tables.
+message ConversationGeneratedSQLInformation {
+    string id = 1;
+    string main_table_name = 2;
+    double main_table_score = 3;
+    MegaTableSchema mega_table_schema = 4;
+    GeneratedSQLQueryParts generated_sql_query_parts = 5;
+    // The score given to this answer by our pipeline
+    double answer_score = 6;
+}
+
+message GeneratedSQLQueryParts {
+    // No logic for them to be string, there is a proper structure but we can
+    // use strings here as we can always generate this data from the mega_table_schema
+    string mega_table_with_statement = 1;
+    string mega_table_aggregated_with_statement = 2;
+    string generated_sql = 3;
+    // This is the raw sql we generate without the with statements, this is necessary
+    // to keep track of the original sql so we can use it for further analysis
+    string generated_sql_without_megatable_schema = 4;
+
+    // This is the where clause of the generated sql.
+    string where_clause = 5;
+
+    // This is the group by clause of the generated sql.
+    repeated string group_by_columns = 6;
+
+    // This is the metric expression of the generated sql.
+    repeated string metrics_expression = 7;
+
+    // This is the LIMIT clause of the generated sql.
+    string limit = 8;
+
+    // This is the ORDER BY clause of the generated sql.
+    string order_by = 9;
+}
+
+message MegaTableSchema {
+    string name = 1;
+    // These columns will be used in the with-statement which is generated for
+    // the megatable
+    repeated MegaTableSchemaColumn columns = 2;
+    string mega_table_with_statement = 3;
+    // The information of the table in the the with statment
+    repeated MegaTableIndividualTableInformation table_information = 4;
+
+    // Whats the name of the base table we are using
+    string base_table_name = 5;
+
+    // This contains all the columns which are present in the megatable and not
+    // just the ones which are used in the with statement (also contains entries
+    // for the primary key columns of each view we will be joining with [this is
+    // not present in the MegaTableSchema.columns field])
+    repeated MegaTableSchemaColumn all_columns_in_table = 6;
+}
+
+message MegaTableIndividualTableInformation {
+    string table_name = 1;
+    string workspace = 2;
+    // Whats the name of the table in the view
+    string view_name = 3;
+
+    string primary_key = 4;
+    string column_on_main_table_to_join = 5;
+    // We are also going to map the column name to its name
+    // in view for making the lookup easier
+    repeated MegaTableColumnInfomrationInTable column_name_in_view = 6;
+
+    // We want to join multiple columnso on the main table with the columns
+    // from the current table
+    repeated string columns_on_main_table_to_join = 7;
+
+    // We want to join columns on the table with the columns from the main table
+    // its repetaed here because foreign keys can be composite
+    repeated string columns_on_table_which_need_to_join = 8;
+}
+
+message MegaTableColumnInfomrationInTable {
+    string column_name = 1;
+    string column_name_in_view = 2;
+}
+
+message MegaTableSchemaColumn {
+    string name = 1;
+    string type = 2;
+    repeated string top_n_items = 3;
+    bool is_dimension = 4;
+    // Is this column an array type, this boolean will help indicate that
+    bool is_repeated = 5;
+    string original_name = 6;
+    bool is_pii = 7;
+}
+
+message Message {
+    string id = 1;
+    string text = 2;
+    string conversation_id = 3;
+    int32 timestamp = 4;
+    int32 user_id = 5;
+
+    // we use the state object to capture the state of the bot
+    BotState bot_state = 6;
+
+    BotReply bot_reply = 7;
+
+    // Create a ticket status, we can use it here but keep the code separate for
+    // acting on ticket values and whatever is happening
+    Ticket ticket = 8;
+
+    // The email of the person who started the conversation
+    string sent_by_email = 9;
+}
+
+
+message BotReply{
+    string message_id = 1;
+    // The start time of the conversation, the time the message was sent.
+    int32 start_time = 2;
+    // The end time of the conversation, the time the bot finished replying.
+    int32 end_time = 3;
+    string generated_sql = 4;
+    // Explaining the sql in human language
+    string generated_sql_explanation = 5;
+    // whats the result of executing the sql (we need to figure out a better way to store this)
+    string sql_execution_result = 6;
+    // we are going to store the mega table with statement here along with the slack
+    // conversation, alto we can generate it whenever we want, its easier to just store it
+    // over here
+    string mega_table_with_statement = 7;
+    // This will deprecate the field 18, we can purge storage and then remove it later on
+    // for now we can keep it but move to using the new version here
+    MegaTableSchema mega_table_schema = 8;
+    // Stores information related to the generated sql, the mega table and the corresponding
+    // information about it
+    GeneratedSQLQueryParts generated_sql_query_parts = 9;
+    // Storing information about the result in human form of the sql execution
+    string sql_execution_result_human_form = 10;
+    // storing the information about the various generations for this
+    // conversation
+    repeated ConversationGeneratedSQLInformation conversation_generated_sql_information  = 11;
+    // the reply pieces that can be of different types. The content of the chip is always a string
+    // but it can be a stringified json object to be rendered as a table
+    repeated BotReplyChip bot_reply_chips = 12;
+}
+
+message BotReplyChip {
+    string id = 1;
+    BotReplyChipType type = 2;
+    string content = 3;
+    int64 timestamp = 4;
+}
+// This is the state of the bot when having a conversation on slack
+enum BotState {
+    BotState_UNKNOWN = 0;
+    GenerateSQL = 1;
+    ExecuteSQL = 2;
+    WaitingForInput = 3;
+}
+
+// What are the state of sql result, since we want to keep the generated sql
+// and the results in sync
+// We start with NOT_PRESENT state
+// we dont move from NOT_PRESENT to OUTDATED, we can only go to IN_SYNC
+// when the user clicks on execute, we go into IN_SYNC
+// if the user gives feedback.. or edits sql, we go into OUTDATED state
+enum SQLResultState {
+    SQLResultState_UNKNOWN = 0;
+    NOT_PRESENT = 1;
+    IN_SYNC = 2;
+    OUTDATED = 3;
+}
+
+// We will load this from the id of slack conversation (which is just a uuid)
+// Or we create one for the ticket (anyways we have to generalise at some point)
+// so moving this property to its own thing
+message Ticket {
+    string ticket_id = 1;
+    TicketStatus ticket_status = 2;
+}
+
+enum TicketStatus {
+    TicketStatus_UNKNOWN = 0;
+    ASK_FOR_REVIEW = 1;
+    APPROVED = 2;
+    REJECTED = 3;
+}
+
+// This is the state of the sql processing. We save many of these checkpoints
+// for each SQLProcessingState.
+message SQLProcessingCheckpoint {
+    // This is the id of the checkpoint. uuid.
+    string checkpoint_id = 1;
+    // the id of the conversation, e.g. for slack it will be the event_ts.
+    string thread_id = 2;
+    SQLProcessingState state = 3;
+    string workspace = 4;
+    int32 start_time = 5;
+    int32 end_time = 6;
+}
+
+// We will use this proto to save the state of the slack conversation
+// The system which generates the slack conversation ping to the backend
+// might go crazy and ping up multiple times, so we will handle it properly
+message ConversationCheckpoint {
+    string event_ts = 1;
+    // How many times did we try to run this same checkpoint
+    int32 tries = 2;
+    ConversationState state = 3;
+    string workspace = 4;
+}
+
+enum ConversationState {
+    ConversationState_UNKNOWN = 0;
+    // We could also have a pre-processing stage for the conversation, where
+    // we could be just creating the ticket without starting to to work on it.
+    PRE_PROCESSING = 4;
+    PROCESSING = 1;
+    REPLIED = 2;
+    // When we fail to generate conversation state from sql
+    GENERATION_FAILED = 3;
+}
+
+
+enum SQLProcessingState {
+    SQL_PROCESSING_STATE_UNKNOWN = 0;
+    // We could also have a pre-processing stage for the conversation, where
+    // we could be just creating the ticket without starting to work on it.
+    SQL_PROCESSING_STATE_PRE_PROCESSING = 1;
+    SQL_PROCESSING_STATE_REPLIED = 2;
+    // When we fail to generate conversation state from sql
+    SQL_PROCESSING_STATE_GENERATION_FAILED = 3;
+    SQL_PROCESSING_STATE_TABLE_SELECTION = 4;
+    SQL_PROCESSING_STATE_DRAFTING_SQL = 5;
+    SQL_PROCESSING_STATE_VALIDATING_SQL = 6;
+}
+
+enum BotReplyChipType {
+    BOT_REPLY_CHIP_TYPE_UNKNOWN = 0;
+    BOT_REPLY_CHIP_TYPE_TEXT = 1;
+    BOT_REPLY_CHIP_TYPE_TABLE = 2;
+    BOT_REPLY_CHIP_TYPE_SQL_GENERATION_PROGRESS = 3;
+    BOT_REPLY_CHIP_TYPE_SQL_RESULT = 4;
+    BOT_REPLY_CHIP_TYPE_SQL_EXPLANATION = 5;
+}
+
+enum ConversationApp {
+    CONVERSATION_APP_UNKNOWN = 0;
+    CONVERSATION_APP_SLACK = 1;
+    CONVERSATION_APP_DASHBOARD = 2;
+}
+
