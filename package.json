@@ -1,10 +1,10 @@
 {
   "name": "@findly-ai/protobuf",
-  "version": "0.0.12",
+  "version": "0.0.13",
   "description": "Open source protobufs for Findly AI",
   "main": "index.js",
   "scripts": {
-    "postinstall": "cross-env npm run make-proto-dir && npm run generate-pbts",
+    "publish": "cross-env npm run make-proto-dir && npm run generate-pbts && npm publish --access public",
     "make-proto-dir": "rm -rf ./ts && mkdir ./ts",
     "generate-pbts": "cross-env npm run gen-conversation-js; npm run gen-conversation-ts;",
     "gen-conversation-js": "cross-env npx pbjs --force-number -t static-module -w es6 -o ./ts/conversation.js $PWD/defs/conversation.proto",
